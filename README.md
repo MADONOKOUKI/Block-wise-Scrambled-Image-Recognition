@@ -1,4 +1,4 @@
-# Block-wise Scrambled Image Recognition Using Adaptation Network
+## Block-wise Scrambled Image Recognition Using Adaptation Network
 
 This repository contains a Pytorch implementation of Proposed Adaptation Network in our AAAI WS 2020 paper:
 
@@ -10,7 +10,7 @@ Adaptation Network is described in Section "Adaptation Network for Block-WiseScr
 
 PRN is described in Section 3.2 of the  paper.
 
-## Getting Started
+### Getting Started
 We have tested our method on [cifar10/100 Dataset](https://www.cs.toronto.edu/~kriz/cifar.html)
 
 ### Prerequisites
