@@ -2,7 +2,7 @@
 
 This repository contains a Pytorch implementation of Proposed Adaptation Network in our AAAI WS 2020 paper:
 
-Koki Madono, Masayuki Tanaka, Masaki Onishi, Tetsuji Ogawa. Block-wise Scrambled Image Recognition Using Adaptation Network. In AAAI WS, 2020
+Koki Madono, Masayuki Tanaka, Masaki Onishi, and Tetsuji Ogawa. Block-wise Scrambled Image Recognition Using Adaptation Network. In AAAI WS, 2020
 <!-- [Arxiv] () -->
 
 Adaptation Network is described in Section "Adaptation Network for Block-WiseScrambled Image Recognition"
@@ -52,20 +52,21 @@ Results on COCO val2017 Ground Truth data.
  Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets= 20 ] = 0.947
 ```
 
+<!--  -->
 ## License
 
-## Other Implementations
-
-[Pytorch Version](https://github.com/salihkaragoz/pose-residual-network-pytorch) --> --> -->
-
-<!-- 
 ## Citation
 If you find this code useful for your research, please consider citing our paper:
 ```
-@Inproceedings{kocabas18prn,
-  Title          = {Multi{P}ose{N}et: Fast Multi-Person Pose Estimation using Pose Residual Network},
-  Author         = {Kocabas, Muhammed and Karagoz, Salih and Akbas, Emre},
-  Booktitle      = {European Conference on Computer Vision (ECCV)},
-  Year           = {2018}
+@Inproceedings{madono2020,
+  Title           = {{B}lock-wise {S}crambled {I}mage {R}ecognition {U}sing {A}daptation {N}etwork},
+  Author         = {Koki Madono, Masayuki Tanaka, Masaki Onishi, and Tetsuji Ogawa},
+  Booktitle      = {AAAI WS},
+  Year           = {2020}
 }
-``` -->
+```
+
+### Reference codes
+
+- [owruby/shake-drop_pytorch](https://github.com/owruby/shake-drop_pytorch)
+- [utkuozbulak/pytorch-cnn-visualizations](https://github.com/utkuozbulak/pytorch-cnn-visualizations/blob/master/src/inverted_representation.py)
