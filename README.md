@@ -59,7 +59,7 @@ Results on COCO val2017 Ground Truth data.
 If you find this code useful for your research, please consider citing our paper:
 ```
 @Inproceedings{madono2020,
-  Title           = {{B}lock-wise {S}crambled {I}mage {R}ecognition {U}sing {A}daptation {N}etwork},
+  Title           = {Block-wise Scrambled Image Recognition Using Adaptation Network},
   Author         = {Koki Madono, Masayuki Tanaka, Masaki Onishi, and Tetsuji Ogawa},
   Booktitle      = {AAAI WS},
   Year           = {2020}
@@ -68,5 +68,6 @@ If you find this code useful for your research, please consider citing our paper
 
 ### Reference codes
 
+- [mastnk/ICCE-TW2018](https://github.com/mastnk/ICCE-TW2018)
 - [owruby/shake-drop_pytorch](https://github.com/owruby/shake-drop_pytorch)
 - [utkuozbulak/pytorch-cnn-visualizations](https://github.com/utkuozbulak/pytorch-cnn-visualizations/blob/master/src/inverted_representation.py)
