@@ -8,8 +8,6 @@ Koki Madono, Masayuki Tanaka, Masaki Onishi, Tetsuji Ogawa. Block-wise Scrambled
 Adaptation Network is described in Section "Adaptation Network for Block-WiseScrambled Image Recognition"
 <!-- <!-- Muhammed Kocabas, Salih Karagoz, Emre Akbas. MultiPoseNet: Fast Multi-Person Pose Estimation using Pose Residual Network. In ECCV, 2018. [Arxiv](https://arxiv.org/abs/1807.04067) - -->
 
-PRN is described in Section 3.2 of the  paper.
-
 ### Getting Started
 We have tested our method on [cifar10/100 Dataset](https://www.cs.toronto.edu/~kriz/cifar.html)
 
@@ -24,13 +22,13 @@ scikit-image
 ### Installing
 
 1. Clone this repository: 
-`git clone https://github.com/mkocabas/pose-residual-network.git`
+`git clone https://github.com/MADONOKOUKI/aaai_ws.git`
 
-<!-- 2. Install [Tensorflow](https://www.tensorflow.org/install/).
+2. Install [Pytorch](https://pytorch.org/).
 
 3. ```pip install -r src/requirements.txt```
 
-4. To download COCO dataset train2017 and val2017 annotations run: `bash data/coco.sh`. (data size: ~240Mb)
+<!-- 4. To download COCO dataset train2017 and val2017 annotations run: `bash data/coco.sh`. (data size: ~240Mb)
 
 ## Training
 
@@ -58,7 +56,7 @@ Results on COCO val2017 Ground Truth data.
 
 ## Other Implementations
 
-[Pytorch Version](https://github.com/salihkaragoz/pose-residual-network-pytorch) --> -->
+[Pytorch Version](https://github.com/salihkaragoz/pose-residual-network-pytorch) --> --> -->
 
 <!-- 
 ## Citation
