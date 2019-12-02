@@ -16,7 +16,7 @@ This network can be used for cloud based machine learning in visual information 
 Scrambling method is described in this figure.
 ### Getting Started
 We have tested our method on [cifar10/100 Dataset](https://www.cs.toronto.edu/~kriz/cifar.html)
-
+(The dataset can be download via [pytorch code](https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html))
 ### Prerequisites
 ```
 python
