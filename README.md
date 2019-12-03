@@ -37,7 +37,7 @@ scikit-image
 
 ## Training
 
-`python {args.1}_{args.2}_{args.3}`
+`python {args.1}_{args.2}_{args.3} --e=305 --tensorboard_name * --training_model_name *.t7 --json_file_name *.json`
 
 args.1 : default(no adaptation network) / tanaka / proposed
 
