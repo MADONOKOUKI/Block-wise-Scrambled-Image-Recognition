@@ -37,10 +37,13 @@ scikit-image
 
 ## Training
 
-`python {default(no adaptation network) / tanaka / proposed}_{dataset(cifar10 / cifar100)}_{encryption method or no encryption(plain)}`
+`python {args.1}_{args.2}_{args.3}`
+
+args.1 : default(no adaptation network) / tanaka / proposed
+args.2 : dataset(cifar10 / cifar100)
+args.3 : encryption method(LE,ELE,EtC) or no encryption(plain)
 
 We use [shakedrop](https://arxiv.org/abs/1802.02375) classifier as the backbone network with adaptation network.
-<!-- For more options take a look at `opt.py` -->
 
 ## Results
 
