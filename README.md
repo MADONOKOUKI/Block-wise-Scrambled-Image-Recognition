@@ -17,6 +17,7 @@ Scrambling method is described in this figure.
 ### Getting Started
 We have tested our method on [cifar10/100 Dataset](https://www.cs.toronto.edu/~kriz/cifar.html)
 (The dataset can be download via [pytorch code](https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html))
+
 ### Prerequisites
 ```
 python
@@ -34,32 +35,14 @@ scikit-image
 
 3. ```pip install -r src/requirements.txt```
 
-<!-- 4. To download COCO dataset train2017 and val2017 annotations run: `bash data/coco.sh`. (data size: ~240Mb)
-
 ## Training
 
-`python main.py`
+`python {default(no adaptation network) / tanaka / proposed}_{dataset(cifar10 / cifar100)}_{encryption method or no encryption(plain)}`
 
 For more options take a look at `opt.py`
 
 ## Results
-Results on COCO val2017 Ground Truth data.
 
-```
- Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets= 20 ] = 0.894
- Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets= 20 ] = 0.971
- Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets= 20 ] = 0.912
- Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets= 20 ] = 0.875
- Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets= 20 ] = 0.918
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 20 ] = 0.909
- Average Recall     (AR) @[ IoU=0.50      | area=   all | maxDets= 20 ] = 0.972
- Average Recall     (AR) @[ IoU=0.75      | area=   all | maxDets= 20 ] = 0.928
- Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets= 20 ] = 0.896
- Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets= 20 ] = 0.947
-```
-
-<!--  -->
-## License
 
 ## Citation
 If you find this code useful for your research, please consider citing our paper:
