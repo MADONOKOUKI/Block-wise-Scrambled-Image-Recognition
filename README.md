@@ -50,6 +50,9 @@ We use [shakedrop](https://arxiv.org/abs/1802.02375) classifier as the backbone 
 
 ## Results
 
+see [mypaper]()
+
+Result highly change depend on hyper parameter on matrix and total variation norm.
 
 ## Citation
 If you find this code useful for your research, please consider citing our paper:
