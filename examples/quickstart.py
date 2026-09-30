@@ -27,12 +27,13 @@ OUT = Path(__file__).resolve().parents[1] / "assets" / "quickstart.png"
 cat = Image.fromarray(data.chelsea()[:, 75:375]).resize((32, 32), Image.BICUBIC)
 img = np.asarray(cat)  # (32, 32, 3) uint8
 
-# 2) Scramble with every scheme of Table 2; the key is the seed (30 = the keys of the original code).
+# 2) Scramble with every scheme of Table 2, using the keys of the paper's experiments (the default;
+#    pass seed=... for a new key).
 schemes = {
     "plain": bs.Plain(),
-    "LE (Tanaka 2018)": bs.LE(seed=30),
-    "ELE (proposed)": bs.ELE(seed=30),
-    "EtC (Chuman et al. 2018)": bs.EtC(seed=30),
+    "LE (Tanaka 2018)": bs.LE(),
+    "ELE (proposed)": bs.ELE(),
+    "EtC (Chuman et al. 2018)": bs.EtC(),
 }
 fig, axes = plt.subplots(2, 4, figsize=(10, 5.4))
 for col, (name, scheme) in enumerate(schemes.items()):
@@ -62,7 +63,7 @@ print(f"saved {OUT}")
 
 # 3) One training step of the proposed method: augmentation -> ELE scrambling -> ELE-AdaptNet -> classifier.
 torch.manual_seed(0)
-transform = T.Compose([T.RandomCrop(32, padding=4), T.RandomHorizontalFlip(), T.ToTensor(), bs.ELE(seed=30)])
+transform = T.Compose([T.RandomCrop(32, padding=4), T.RandomHorizontalFlip(), T.ToTensor(), bs.ELE()])
 x = torch.stack([transform(cat) for _ in range(8)])  # a mini-batch of scrambled views of the cat
 y = torch.full((8,), 3)  # "cat" is class 3 in CIFAR-10
 model = bs.build_model(adaptation="proposed", num_classes=10)  # ELE-AdaptNet + Shake-PyramidNet-110

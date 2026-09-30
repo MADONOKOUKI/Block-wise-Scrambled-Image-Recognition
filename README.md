@@ -48,7 +48,7 @@ pip install git+https://github.com/MADONOKOUKI/Block-wise-Scrambled-Image-Recogn
 import torch, torch.nn.functional as F, torchvision.transforms as T
 import blockscramble as bs
 
-ele = bs.ELE(block_size=4, seed=30)        # the paper's block-wise scrambling; the seed is the key
+ele = bs.ELE()                             # the paper's block-wise scrambling with the paper's keys
 transform = T.Compose([T.RandomCrop(32, padding=4), T.RandomHorizontalFlip(), T.ToTensor(), ele])
 x = torch.rand(8, 3, 32, 32)               # images in [0, 1]; PIL images and numpy arrays work too
 x_scr = ele(x)                             # scrambled; ele.inverse(x_scr) decrypts it (8-bit exact)
@@ -81,14 +81,16 @@ model = bs.ScrambledImageClassifier(backbone, bs.ELEAdaptNet())   # or bs.LEAdap
 | scheme | class | block key | block shuffling | block-wise pixel operation | key space (Table 2) |
 |---|---|---|---|---|---|
 | plain image | `bs.Plain()` | - | - | - | 0 |
-| LE (Tanaka 2018) | `bs.LE(seed=...)` | common | - | pixel shuffling, negative-positive transform | (B²·6)!·2^(B²·6) |
-| EtC (Chuman et al. 2018) | `bs.EtC(seed=...)` | different | ✓ | block rotation & inversion, negative-positive transform, color component shuffling | 8^N·2^N·6^N·N! |
-| **ELE (proposed)** | `bs.ELE(seed=...)` | different | ✓ | pixel shuffling, negative-positive transform | {(B²·6)!·2^(B²·6)}^N·N! |
+| LE (Tanaka 2018) | `bs.LE()` | common | - | pixel shuffling, negative-positive transform | (B²·6)!·2^(B²·6) |
+| EtC (Chuman et al. 2018) | `bs.EtC()` | different | ✓ | block rotation & inversion, negative-positive transform, color component shuffling | 8^N·2^N·6^N·N! |
+| **ELE (proposed)** | `bs.ELE()` | different | ✓ | pixel shuffling, negative-positive transform | {(B²·6)!·2^(B²·6)}^N·N! |
 
 B × B is the block size (B = 4) and N the number of blocks (N = 64 for 32 × 32 CIFAR images). LE and ELE
 split every 8-bit value into two 4-bit halves, so a 4 × 4 RGB block has 96 values to shuffle. Every scheme
 accepts PIL images, numpy arrays (`H x W x C`, `uint8` or float) and tensors (`C x H x W` / `N x C x H x W`),
-and has an exact `inverse` (see the notes below for EtC). `bs.BlockShuffle` is block shuffling on its own.
+and has an exact `inverse` (see the notes below for EtC). By default the schemes use the keys of the paper's
+experiments (see "Keys" below); `seed=...` draws a new key, e.g. `bs.ELE(seed=1)`. `bs.BlockShuffle` is block
+shuffling on its own.
 
 | component | code | paper |
 |---|---|---|
@@ -113,7 +115,8 @@ CIFAR is downloaded to `--data-root` (default `./data`). Each run writes `metric
 continues from `last.pth`. The original scripts printed the **best** test accuracy over all epochs (and kept
 that checkpoint); it is `best_test_acc` in `summary.json` (`final_test_acc` is the last epoch).
 [`scripts/reproduce_table3.sh`](scripts/reproduce_table3.sh) lists the 24 runs of Table 3, one line per
-table cell, grouped by table row. For a quick check without any download:
+table cell, grouped by table row. The scrambling keys are those of the original experiments (`--keys paper`,
+the default); `--keys seed --key-seed N` trains with new keys. For a quick check without any download:
 
 ```bash
 python train.py --dataset fake --epochs 1 --batch-size 16 --depth 20 --alpha 12 --fake-size 64
@@ -129,7 +132,7 @@ Defaults are the settings of the original code:
 | learning rate | 0.1, × 0.1 at the start of epochs 150 and 225 | code (paper: 0–150 / 150–225 / 225–300) |
 | loss weights | λ_U = 0.001, λ_s = 0.1 | paper and code |
 | augmentation | random crop (padding 4) and horizontal flip, applied before scrambling; no normalisation | code (paper: augmentation before scrambling) |
-| scrambling | 4 × 4 blocks (N = 64), key seed 30 | paper (block size) and code (seed) |
+| scrambling | 4 × 4 blocks (N = 64), keys of the original code (see "Keys" below) | paper (block size) and code (keys) |
 
 As the original README noted, the results depend strongly on the weights of the matrix and total-variation
 terms (`--lambda-u`, `--lambda-s`).
@@ -159,10 +162,13 @@ The new code follows the original code, which produced the numbers in the paper.
 - **EtC colour shuffling:** the original `channel_change` assigns channels in place, so five of its six codes
   duplicate a colour channel instead of permuting it. `bs.EtC()` reproduces this, which makes it non-invertible.
   `bs.EtC(channel_shuffle="permute")` (or `train.py --etc-channel-shuffle permute`) is the true colour permutation.
-- **Keys:** with seed 30, the EtC parameters and the ELE block permutation are exactly those of the original
-  code (Python `random.seed(30)`). The original LE/ELE pixel keys were read from `key4/*.pkl` files that were
-  never published, so they are generated from `numpy.random.RandomState(seed)` in the same format
-  (`--key-seed`).
+- **Keys:** the defaults reproduce the keys of the paper's experiments. The original scripts read the LE/ELE
+  pixel keys from the 64 files `key4/0_.pkl` … `key4/63_.pkl` of the original code (LE uses key 0 for every
+  block; ELE uses key `8r + c` for the block in row `r`, column `c`). They ship with the package as
+  `blockscramble/resources/key4.npz` (`bs.paper_keys()`), and the pickle files themselves are in
+  [`archive/key4/`](archive/key4/). The EtC parameters and the ELE block order come from Python's
+  `random.seed(30)`, as in the original code. The tests check the defaults bit-for-bit against the archived
+  code fed with these files. `seed=...` (`train.py --keys seed --key-seed N`) draws new keys in the same format.
 - **ShakeDrop:** the per-batch gate is drawn from the CPU random generator instead of the GPU. It has the same
   distribution but avoids a device synchronisation in every block.
 
@@ -193,12 +199,13 @@ blockscramble/            the library
   shakedrop.py            ShakeDrop and Shake-PyramidNet
   models.py               build_model, ScrambledImageClassifier
   schedule.py             original_lr
+  resources/key4.npz      the 64 LE/ELE keys of the original experiments
 train.py                  training / evaluation for every cell of Table 3
 scripts/reproduce_table3.sh
 examples/quickstart.py    writes assets/quickstart.png
 notebooks/quickstart.ipynb
 tests/                    pytest (incl. parity tests against archive/)
-archive/                  original research code (unmaintained) and a map to the new commands
+archive/                  original research code (unmaintained), its key files and a map to the new commands
 ```
 
 ## Citation

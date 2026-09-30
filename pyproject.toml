@@ -45,5 +45,8 @@ Paper = "https://arxiv.org/abs/2001.07761"
 [tool.setuptools]
 packages = ["blockscramble"]
 
+[tool.setuptools.package-data]
+blockscramble = ["resources/*.npz"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

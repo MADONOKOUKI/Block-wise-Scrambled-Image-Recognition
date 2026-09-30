@@ -19,7 +19,8 @@ blocks) and every block is transformed with a secret key:
 ``BlockShuffle``
     Block location shuffling alone (the second step of ELE and EtC).
 
-Every scheme is deterministic given ``seed`` (the key) and accepts
+By default every scheme uses the keys of the paper's experiments (see "Keys" below); pass
+``seed=...`` for a new, deterministic key. Every scheme accepts
 
 * a ``PIL.Image`` (returns a ``PIL.Image``),
 * a numpy array in channels-last layout, ``(H, W)``, ``(H, W, C)`` or ``(N, H, W, C)``, either
@@ -38,16 +39,22 @@ Faithfulness notes (the new code follows the original code where the two differ)
   indexed by its *source* position) and shuffles block locations afterwards; Fig. 2 of the paper
   draws the two steps in the opposite order. Both orders are the same scheme up to a relabelling of
   the per-block keys; we follow the code.
-* Keys. ``random.Random(seed)`` generates the EtC parameters and the ELE block permutation with
-  exactly the calls of the original code, so ``seed=30`` (the default) reproduces the original keys
-  bit-for-bit. The original LE/ELE pixel keys were loaded from ``key4/*.pkl`` files that were never
-  published; here they are drawn from ``numpy.random.RandomState(seed)`` in the same format
-  (a permutation of ``range(2*B*B*C)``), block by block, so that ``ELE`` block 0 uses the ``LE`` key.
+* Keys. The original scripts read the LE/ELE pixel keys from the 64 files ``key4/0_.pkl`` ...
+  ``key4/63_.pkl``: LE uses ``key4/0_.pkl`` for every block, ELE gives the block in grid row ``r``,
+  column ``c`` the key ``key4/<8r+c>_.pkl``. These keys ship with the package
+  (``resources/key4.npz``, see :func:`paper_keys`) and are the default (``key="paper"``). The EtC
+  parameters and the ELE block permutation were drawn after ``random.seed(30)``; ``random.Random``
+  with the same calls reproduces them exactly (the default ``seed=None`` means 30). With
+  ``seed=s`` (``key="seed"`` for LE/ELE) new keys are drawn in the same format: the pixel keys from
+  ``numpy.random.RandomState(s)`` block by block (so ``ELE`` block 0 uses the ``LE`` key) and the
+  block permutation / EtC parameters from ``random.Random(s)``.
 """
 from __future__ import annotations
 
+import functools
+import os
 import random
-from typing import Callable, Dict, Tuple
+from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -62,7 +69,40 @@ __all__ = [
     "EtC",
     "SCRAMBLERS",
     "get_scrambler",
+    "paper_keys",
+    "PAPER_SEED",
 ]
+
+#: ``random.seed(30)`` of the original code: EtC parameters and ELE block permutation of the paper.
+PAPER_SEED = 30
+_RESOURCES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+
+
+@functools.lru_cache(maxsize=1)
+def paper_keys() -> np.ndarray:
+    """The 64 LE keys read by the original scripts, ``key4/0_.pkl ... key4/63_.pkl``; shape ``(64, 96)``.
+
+    Row ``i`` is the key stored in ``key4/<i>_.pkl`` (4x4 RGB blocks: a permutation of ``range(96)``).
+    ``Blockwise_scramble_LE.py`` (LE) uses row 0 for every block; ``Blockwise_scramble.py`` (ELE) uses
+    row ``8 * r + c`` for the block in grid row ``r``, column ``c`` of a 32x32 image. The pickle files
+    are kept in ``archive/key4/`` (the same files are committed in the author's SIA-GAN and
+    psivt23_scramblemix repositories); ``tests/test_parity_original.py`` checks this array against them.
+    """
+    with np.load(os.path.join(_RESOURCES, "key4.npz")) as data:
+        keys = data["keys"].astype(np.int64)
+    keys.setflags(write=False)
+    return keys
+
+
+def _key_mode(key: Optional[str], seed: Optional[int]) -> str:
+    """``key=None`` -> ``"paper"`` unless a seed is given."""
+    if key is None:
+        return "paper" if seed is None else "seed"
+    if key not in ("paper", "seed"):
+        raise ValueError("key must be 'paper' (the key files of the original code) or 'seed'")
+    if key == "paper" and seed is not None:
+        raise ValueError("seed is only used with key='seed'")
+    return key
 
 # EtC colour-channel operation, indexed by the per-block code 0..5: output channel c is taken from
 # input channel TABLE[code][c].
@@ -145,11 +185,11 @@ class Scrambler:
     #: whether the scheme works on 8-bit values (float inputs are quantised)
     requires_uint8: bool = False
 
-    def __init__(self, block_size: int = 4, seed: int = 30):
+    def __init__(self, block_size: int = 4, seed: Optional[int] = None):
         if int(block_size) < 1:
             raise ValueError("block_size must be a positive integer")
         self.block_size = int(block_size)
-        self.seed = int(seed)
+        self.seed = PAPER_SEED if seed is None else int(seed)  # None: the seed of the original code
         self._cache: Dict[Tuple, object] = {}
 
     # public API ------------------------------------------------------------------------------
@@ -237,7 +277,8 @@ class BlockShuffle(Scrambler):
     """Block location shuffling: output block ``i`` is input block ``permutation[i]``.
 
     The permutation is ``random.seed(seed); random.shuffle(list(range(N)))`` as in the original
-    training scripts (``seed=30`` reproduces their ``_shf``); ``Block_location_shuffle.py``.
+    training scripts; the default ``seed=None`` (= 30) reproduces their ``_shf``
+    (``Block_location_shuffle.py``).
     """
 
     def permutation(self, num_blocks: int) -> np.ndarray:
@@ -256,25 +297,54 @@ class BlockShuffle(Scrambler):
         return _from_blocks(blocks[:, inv], x.shape[1], x.shape[2])
 
 
-class LE(Scrambler):
-    """Learnable image encryption (Tanaka, ICCE-TW 2018): one key shared by all blocks.
+class _LEKeys(Scrambler):
+    """Key handling shared by :class:`LE` and :class:`ELE`.
 
-    Key space ``(B^2 * 6)! * 2^(B^2 * 6)`` for RGB (Eq. 1, Table 2). Port of ``BlockScramble`` from
-    ``learnable_encryption.py`` (mastnk/ICCE-TW2018) as used by ``Blockwise_scramble_LE.py``.
+    ``key="paper"`` (the default when no seed is given) uses the key files of the original code
+    (:func:`paper_keys`, 4x4 RGB blocks); ``key="seed"`` / ``seed=s`` draws new keys from ``s``.
     """
 
     requires_uint8 = True
 
-    def key(self, channels: int = 3) -> np.ndarray:
-        """The key: a permutation of ``range(2 * B * B * channels)``."""
-        ck = ("key", channels)
+    def __init__(self, block_size: int = 4, seed: Optional[int] = None, key: Optional[str] = None):
+        super().__init__(block_size, seed)
+        self.key = _key_mode(key, seed)
+        if self.key == "paper" and self.block_size != 4:
+            raise ValueError("key='paper' holds the keys of 4x4 blocks; use seed=... for other block sizes")
+
+    def __repr__(self) -> str:
+        key = "key='paper'" if self.key == "paper" else f"seed={self.seed}"
+        return f"{type(self).__name__}(block_size={self.block_size}, {key})"
+
+    def _keys(self, num_keys: int, channels: int) -> np.ndarray:
+        """``num_keys`` pixel keys: rows 0.. of the paper keys, or drawn from the seed."""
+        ck = ("keys", num_keys, channels)
         if ck not in self._cache:
-            self._cache[ck] = _nibble_keys(self.seed, 1, 2 * self.block_size**2 * channels)[0]
+            if self.key == "paper":
+                if channels != 3 or num_keys > 64:
+                    raise ValueError("key='paper' holds 64 keys for RGB images (32x32 for ELE); "
+                                     "use seed=... for other images")
+                self._cache[ck] = paper_keys()[:num_keys]
+            else:
+                self._cache[ck] = _nibble_keys(self.seed, num_keys, 2 * self.block_size**2 * channels)
         return self._cache[ck]
+
+
+class LE(_LEKeys):
+    """Learnable image encryption (Tanaka, ICCE-TW 2018): one key shared by all blocks.
+
+    Key space ``(B^2 * 6)! * 2^(B^2 * 6)`` for RGB (Eq. 1, Table 2). Port of ``BlockScramble`` from
+    ``learnable_encryption.py`` (mastnk/ICCE-TW2018) as used by ``Blockwise_scramble_LE.py``.
+    ``LE()`` uses the paper's key ``key4/0_.pkl``; ``LE(seed=s)`` a key drawn from ``s``.
+    """
+
+    def pixel_key(self, channels: int = 3) -> np.ndarray:
+        """The key: a permutation of ``range(2 * B * B * channels)``."""
+        return self._keys(1, channels)[0]
 
     def _run_nibbles(self, x, inverse: bool):
         n, h, w, c = x.shape
-        key = self.key(c)
+        key = self.pixel_key(c)
         rev = key > key.size / 2  # as in BlockScramble.setKey
         order = np.argsort(key) if inverse else key
         blocks = _to_blocks(x, self.block_size)
@@ -289,27 +359,25 @@ class LE(Scrambler):
         return self._run_nibbles(x, inverse=True)
 
 
-class ELE(Scrambler):
+class ELE(_LEKeys):
     """Extended learnable encryption (ELE), the block-wise scrambling proposed in the paper.
 
     Block-wise pixel shuffling + negative-positive transform with a different key for every block
     (the LE operation of :class:`LE`), then block location shuffling (Fig. 2, Table 2, Eq. 3; key
     space ``{(B^2 * 6)! * 2^(B^2 * 6)}^N * N!``). Port of ``Blockwise_scramble.py`` followed by
-    ``Block_location_shuffle.py``.
+    ``Block_location_shuffle.py``. ``ELE()`` uses the paper's keys (``key4/0..63_.pkl`` for the 64
+    blocks of a 32x32 image, block order of ``random.seed(30)``); ``ELE(seed=s)`` keys drawn from ``s``.
     """
 
-    requires_uint8 = True
-
-    def keys(self, num_blocks: int, channels: int = 3) -> np.ndarray:
-        """Per-block keys, shape ``(num_blocks, 2 * B * B * channels)``; row 0 equals ``LE(seed).key()``."""
-        ck = ("keys", num_blocks, channels)
-        if ck not in self._cache:
-            length = 2 * self.block_size**2 * channels
-            self._cache[ck] = _nibble_keys(self.seed, num_blocks, length)
-        return self._cache[ck]
+    def pixel_keys(self, num_blocks: int, channels: int = 3) -> np.ndarray:
+        """Per-block keys, shape ``(num_blocks, 2 * B * B * channels)``; row ``k`` is for block ``k``
+        (row-major source position). Row 0 equals the key of :class:`LE` with the same settings."""
+        if self.key == "paper" and num_blocks != 64:
+            raise ValueError("key='paper' holds the 64 per-block keys of 32x32 images; use seed=...")
+        return self._keys(num_blocks, channels)
 
     def permutation(self, num_blocks: int) -> np.ndarray:
-        """Block location permutation (``seed=30`` reproduces the original ``_shf``)."""
+        """Block location permutation (``random.seed(30)`` of the original scripts by default)."""
         ck = ("perm", num_blocks)
         if ck not in self._cache:
             self._cache[ck] = _block_permutation(self.seed, num_blocks)
@@ -319,7 +387,7 @@ class ELE(Scrambler):
         n, h, w, c = x.shape
         blocks = _to_blocks(x, self.block_size)
         nb = blocks.shape[1]
-        keys = self.keys(nb, c)
+        keys = self.pixel_keys(nb, c)
         flat = _nibble_scramble(blocks.reshape(n, nb, -1), keys, keys > keys.shape[1] / 2)
         flat = flat[:, self.permutation(nb)]
         return _from_blocks(flat.reshape(blocks.shape), h, w)
@@ -328,7 +396,7 @@ class ELE(Scrambler):
         n, h, w, c = x.shape
         blocks = _to_blocks(x, self.block_size)
         nb = blocks.shape[1]
-        keys = self.keys(nb, c)
+        keys = self.pixel_keys(nb, c)
         flat = blocks.reshape(n, nb, -1)[:, np.argsort(self.permutation(nb))]
         flat = _nibble_scramble(flat, np.argsort(keys, axis=1), keys > keys.shape[1] / 2)
         return _from_blocks(flat.reshape(blocks.shape), h, w)
@@ -339,8 +407,8 @@ class EtC(Scrambler):
 
     For every block (with its own parameters): rotation by 90/180/270/0 degrees, negative-positive
     transform (half of the blocks), vertical/horizontal/no flip, colour-channel operation; then
-    block location shuffling (Table 2, Eq. 2). Port of ``etc_encryption.py``: ``seed=30`` reproduces
-    its parameters exactly.
+    block location shuffling (Table 2, Eq. 2). Port of ``etc_encryption.py``: the default
+    ``seed=None`` (= 30) reproduces its parameters exactly; ``seed=s`` draws new ones.
 
     Args:
         channel_shuffle: ``"original"`` (default) reproduces the original code, whose in-place channel
@@ -350,7 +418,7 @@ class EtC(Scrambler):
             described in the paper) and is invertible.
     """
 
-    def __init__(self, block_size: int = 4, seed: int = 30, channel_shuffle: str = "original"):
+    def __init__(self, block_size: int = 4, seed: Optional[int] = None, channel_shuffle: str = "original"):
         super().__init__(block_size, seed)
         if channel_shuffle not in _ETC_CHANNEL_TABLES:
             raise ValueError(f"channel_shuffle must be one of {sorted(_ETC_CHANNEL_TABLES)}")
@@ -435,8 +503,12 @@ class EtC(Scrambler):
 SCRAMBLERS = {"plain": Plain, "le": LE, "ele": ELE, "etc": EtC}
 
 
-def get_scrambler(name: str, block_size: int = 4, seed: int = 30, **kwargs) -> Scrambler:
-    """Build a scheme by name: ``"plain"``, ``"le"``, ``"ele"`` or ``"etc"`` (case-insensitive)."""
+def get_scrambler(name: str, block_size: int = 4, seed: Optional[int] = None, **kwargs) -> Scrambler:
+    """Build a scheme by name: ``"plain"``, ``"le"``, ``"ele"`` or ``"etc"`` (case-insensitive).
+
+    ``seed=None`` gives the keys of the paper's experiments; extra keyword arguments go to the class
+    (``key=`` for LE/ELE, ``channel_shuffle=`` for EtC).
+    """
     try:
         cls = SCRAMBLERS[name.lower()]
     except KeyError:

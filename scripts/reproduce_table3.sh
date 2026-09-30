@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Table 3 of the paper: accuracy of scrambled image classification on CIFAR-10 / CIFAR-100.
 # 24 runs = 2 datasets x 3 adaptation networks (rows) x 4 scrambling schemes (columns). Every run trains
-# Shake-PyramidNet-110 (alpha = 270) for 305 epochs with the defaults of the original code and writes
+# Shake-PyramidNet-110 (alpha = 270) for 305 epochs with the defaults of the original code (including the
+# scrambling keys of the original experiments, --keys paper) and writes
 # runs/<dataset>_<scramble>_<adaptation>/{metrics.csv,summary.json}; like the original scripts, summary.json
 # holds the best test accuracy over all epochs ("best_test_acc"). CIFAR is downloaded to ./data on first use.
 # The runs are independent: launch them in parallel on several GPUs (e.g. prefix CUDA_VISIBLE_DEVICES=i).

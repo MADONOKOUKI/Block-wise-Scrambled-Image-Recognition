@@ -3,12 +3,17 @@
 This directory contains the original research code that was used for the experiments of the paper
 *Block-wise Scrambled Image Recognition Using Adaptation Network* (AAAI-20 Workshop on AIoT, 2020).
 It is kept **for reference and reproducibility only and is not maintained**. It targets PyTorch 1.3 with
-CUDA (`torch.cuda.FloatTensor`, `.cuda()`), tensorboardX and scikit-learn (see `src/requirements.txt`),
-and the LE/ELE scripts read key files `key4/<block>_.pkl` that were never published.
+CUDA (`torch.cuda.FloatTensor`, `.cuda()`), tensorboardX and scikit-learn (see `src/requirements.txt`).
+The LE/ELE scripts read their keys from `key4/<i>_.pkl` relative to the working directory, so run them from
+this directory. `key4/` holds the 64 key files (`[block size, key]` pickles written by
+`BlockScramble.save`). They were not in this repository before; they are byte-identical copies of the
+`key4/` files committed in the author's SIA-GAN and psivt23_scramblemix repositories. The package ships the
+same keys as `blockscramble/resources/key4.npz`.
 
 Use the package and the single training script at the repository root instead. The tests in
 `tests/test_parity_original.py` import this code and check that the new implementation produces the
-same outputs (scrambled images, adaptation-network features, regularisers, learning-rate schedule).
+same outputs (scrambled images with the key files, adaptation-network features, regularisers,
+learning-rate schedule).
 
 ## Old scripts -> new command
 
@@ -42,6 +47,7 @@ For example, `python proposed_cifar100_ELE.py --e=305 ...` becomes
 | archived file | new code |
 |---|---|
 | `learnable_encryption.py` (`BlockScramble`, from mastnk/ICCE-TW2018) | `blockscramble.LE` / `blockscramble.ELE` (4-bit pixel operation) |
+| `key4/<i>_.pkl` (LE/ELE keys) | `blockscramble.paper_keys()`, the default keys of `LE()` / `ELE()` |
 | `Blockwise_scramble_LE.py` | `blockscramble.LE` |
 | `Blockwise_scramble.py` + `Block_location_shuffle.py` | `blockscramble.ELE` (and `blockscramble.BlockShuffle`) |
 | `etc_encryption.py` | `blockscramble.EtC` |

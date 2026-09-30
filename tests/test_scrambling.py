@@ -84,15 +84,31 @@ def test_le_uses_one_key_ele_uses_one_key_per_block():
 
 
 def test_keys_and_permutations():
-    le, ele = bs.LE(seed=30), bs.ELE(seed=30)
-    assert sorted(le.key(3)) == list(range(96))          # 2 * 4 * 4 * 3 4-bit values per block
-    assert ele.keys(64, 3).shape == (64, 96)
-    assert np.array_equal(ele.keys(64, 3)[0], le.key(3))  # block 0 of ELE uses the LE key
-    # seed 30 reproduces the block permutation `_shf` of the original ELE scripts
-    assert list(ele.permutation(64)[:12]) == [14, 43, 53, 26, 12, 57, 28, 32, 18, 36, 31, 48]
-    assert np.array_equal(bs.BlockShuffle(seed=30).permutation(64), ele.permutation(64))
-    p = bs.EtC(seed=30).params(64)
+    le, ele = bs.LE(seed=5), bs.ELE(seed=5)
+    assert sorted(le.pixel_key(3)) == list(range(96))           # 2 * 4 * 4 * 3 4-bit values per block
+    assert ele.pixel_keys(64, 3).shape == (64, 96)
+    assert np.array_equal(ele.pixel_keys(64, 3)[0], le.pixel_key(3))  # block 0 of ELE uses the LE key
+    # the default block order is `_shf` of the original ELE scripts (random.seed(30))
+    assert list(bs.ELE().permutation(64)[:12]) == [14, 43, 53, 26, 12, 57, 28, 32, 18, 36, 31, 48]
+    assert np.array_equal(bs.BlockShuffle().permutation(64), bs.ELE().permutation(64))
+    assert np.array_equal(bs.ELE(seed=30).permutation(64), bs.ELE().permutation(64))
+    p = bs.EtC().params(64)
     assert sorted(p["permutation"]) == list(range(64)) and p["negaposi"].sum() == 32
+
+
+def test_paper_keys_are_the_default():
+    keys = bs.paper_keys()
+    assert keys.shape == (64, 96) and all(sorted(k) == list(range(96)) for k in keys)
+    assert len({k.tobytes() for k in keys}) == 64
+    assert list(keys[0, :6]) == [47, 24, 42, 54, 68, 26]         # key4/0_.pkl
+    assert np.array_equal(bs.LE().pixel_key(), keys[0]) and np.array_equal(bs.ELE().pixel_keys(64), keys)
+    assert bs.LE().key == bs.ELE(key="paper").key == "paper" and bs.LE(seed=0).key == "seed"
+    img = np.random.RandomState(5).randint(0, 256, size=(32, 32, 3)).astype(np.uint8)
+    assert not np.array_equal(bs.LE()(img), bs.LE(seed=30)(img))  # seeded keys are new keys
+    for bad in (lambda: bs.LE(key="paper", seed=1), lambda: bs.LE(block_size=8), lambda: bs.ELE(key="x"),
+                lambda: bs.ELE()(np.zeros((48, 48, 3), np.uint8)), lambda: bs.LE()(img[..., 0])):
+        with pytest.raises(ValueError):
+            bad()
 
 
 def test_block_shuffle_moves_whole_blocks(batch_u8):
@@ -105,10 +121,11 @@ def test_block_shuffle_moves_whole_blocks(batch_u8):
 
 def test_other_block_and_image_sizes():
     img = np.random.RandomState(2).randint(0, 256, size=(48, 64, 3)).astype(np.uint8)
-    for s in [bs.LE(block_size=8), bs.ELE(block_size=16), bs.EtC(block_size=8, channel_shuffle="permute")]:
+    for s in [bs.LE(block_size=8, seed=0), bs.ELE(block_size=16, seed=0),
+              bs.EtC(block_size=8, channel_shuffle="permute")]:
         assert np.array_equal(s.inverse(s(img)), img)
     gray = img[..., 0]
-    assert np.array_equal(bs.ELE().inverse(bs.ELE()(gray)), gray)
+    assert np.array_equal(bs.ELE(seed=0).inverse(bs.ELE(seed=0)(gray)), gray)
     with pytest.raises(ValueError):
         bs.ELE()(np.zeros((30, 32, 3), np.uint8))  # 30 is not a multiple of 4
 

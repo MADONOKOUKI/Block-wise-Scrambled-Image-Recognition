@@ -41,8 +41,10 @@ def parse_args(argv=None):
     g.add_argument("--adaptation", default="proposed", choices=list(bs.ADAPTATIONS),
                    help="none = No AdaptNet | tanaka = LE-AdaptNet | proposed = ELE-AdaptNet")
     g.add_argument("--block-size", type=int, default=4)
-    g.add_argument("--key-seed", type=int, default=30,
-                   help="scrambling key; 30 reproduces the EtC key and ELE block permutation of the original code")
+    g.add_argument("--keys", default="paper", choices=["paper", "seed"],
+                   help="paper: the keys of the original experiments (LE/ELE key files shipped with the package, "
+                        "seed 30 for the EtC parameters and the ELE block order); seed: keys drawn from --key-seed")
+    g.add_argument("--key-seed", type=int, default=None, help="seed for --keys seed (default 30)")
     g.add_argument("--etc-channel-shuffle", default="original", choices=["original", "permute"],
                    help="EtC colour operation: 'original' as in the paper's code, 'permute' = true permutation")
 
@@ -72,7 +74,12 @@ def parse_args(argv=None):
     g.add_argument("--seed", type=int, default=0, help="seed for initialisation and data order")
     g.add_argument("--resume", action="store_true", help="continue from <out-dir>/last.pth")
     g.add_argument("--fake-size", type=int, default=256, help="number of training images for --dataset fake")
-    return p.parse_args(argv)
+    args = p.parse_args(argv)
+    if args.keys == "paper" and args.key_seed is not None:
+        p.error("--key-seed is only used with --keys seed")
+    if args.keys == "paper" and args.block_size != 4 and args.scramble in ("le", "ele"):
+        p.error("the paper's LE/ELE keys are for 4x4 blocks; use --keys seed with other block sizes")
+    return args
 
 
 def pick_device(name: str) -> torch.device:
@@ -133,8 +140,10 @@ def main(argv=None):
     torch.manual_seed(args.seed)
     device = pick_device(args.device)
 
-    extra = {"channel_shuffle": args.etc_channel_shuffle} if args.scramble == "etc" else {}
-    scrambler = bs.get_scrambler(args.scramble, block_size=args.block_size, seed=args.key_seed, **extra)
+    extra = {"le": {"key": args.keys}, "ele": {"key": args.keys},
+             "etc": {"channel_shuffle": args.etc_channel_shuffle}}.get(args.scramble, {})
+    seed = args.key_seed if args.keys == "seed" else None  # None: the keys of the original code
+    scrambler = bs.get_scrambler(args.scramble, block_size=args.block_size, seed=seed, **extra)
     train_set, test_set, num_classes = build_data(args, scrambler)
     loader_kw = dict(num_workers=args.workers, pin_memory=device.type == "cuda",
                      persistent_workers=args.workers > 0)

@@ -29,44 +29,63 @@ def test_etc(images):
     import etc_encryption as orig  # module-level random.seed(30), as when the scripts import it
 
     ref = orig.EtC_encryption(images.copy()).numpy()
-    ours = bs.EtC(seed=30)(torch.from_numpy(images)).numpy()
+    ours = bs.EtC()(torch.from_numpy(images)).numpy()
     assert np.allclose(ours, ref, atol=1e-6)
-    p = bs.EtC(seed=30).params(64)
+    p = bs.EtC().params(64)
     assert list(p["rotate"]) == orig._rotate and list(p["flip"]) == orig._reverse
     assert list(p["channel"]) == orig._channel and list(p["negaposi"]) == orig._negaposi
     assert list(p["permutation"]) == orig._shf
 
 
-def test_le_and_ele(images, tmp_path, monkeypatch):
-    from learnable_encryption import BlockScramble
-
-    ele = bs.ELE(seed=30)
-    keys = ele.keys(64, 3)
-    os.makedirs(tmp_path / "key4")
-    for i, key in enumerate(keys):  # the original scripts read keys from key4/<block>_.pkl
-        with open(tmp_path / "key4" / f"{i}_.pkl", "wb") as f:
-            pickle.dump([[4, 4, 3], key.astype(np.uint32)], f)
-    monkeypatch.chdir(tmp_path)
+def _original_le_ele(images, shuffle_seed=30):
+    """LE and ELE exactly as the original scripts compute them (keys read from ./key4/<i>_.pkl)."""
     import Blockwise_scramble
     import Blockwise_scramble_LE
     from Block_location_shuffle import block_location_shuffle
 
-    x = torch.from_numpy(images)
-    ref_le = np.transpose(Blockwise_scramble_LE.blockwise_scramble(images.copy()), (0, 3, 1, 2))
-    assert np.array_equal(bs.LE(seed=30)(x).numpy(), ref_le)
-
-    random.seed(30)  # as in the training scripts
+    le = np.transpose(Blockwise_scramble_LE.blockwise_scramble(images.copy()), (0, 3, 1, 2))
+    random.seed(shuffle_seed)  # the training scripts call random.seed(30)
     shf = list(range(64))
     random.shuffle(shf)
-    scrambled = np.transpose(Blockwise_scramble.blockwise_scramble(images.copy()), (0, 3, 1, 2))
-    ref_ele = block_location_shuffle(shf, scrambled)
-    assert np.array_equal(ele(x).numpy(), ref_ele)
+    ele = block_location_shuffle(shf, np.transpose(Blockwise_scramble.blockwise_scramble(images.copy()), (0, 3, 1, 2)))
+    return le, ele
 
-    bsc = BlockScramble([4, 4, 3])
-    bsc.setKey(keys[0].astype(np.uint32))
-    ref_dec = np.transpose(bsc.Decramble(np.transpose(ref_le, (0, 2, 3, 1))), (0, 3, 1, 2))
-    our_dec = bs.LE(seed=30).inverse(torch.from_numpy(ref_le)).numpy()
+
+def test_paper_keys_are_the_original_key_files():
+    from learnable_encryption import BlockScramble
+
+    for i in range(64):  # loaded with the original loader
+        orig = BlockScramble(os.path.join(ARCHIVE, "key4", f"{i}_.pkl"))
+        assert list(orig.blockSize) == [4, 4, 3]
+        assert np.array_equal(orig.key.astype(np.int64), bs.paper_keys()[i])
+
+
+def test_le_and_ele_with_the_original_key_files(images, monkeypatch):
+    from learnable_encryption import BlockScramble
+
+    monkeypatch.chdir(ARCHIVE)  # the original code reads key4/<i>_.pkl relative to the working directory
+    ref_le, ref_ele = _original_le_ele(images)
+    x = torch.from_numpy(images)
+    assert np.array_equal(bs.LE()(x).numpy(), ref_le)    # default = the paper's keys
+    assert np.array_equal(bs.ELE()(x).numpy(), ref_ele)
+    orig = BlockScramble(os.path.join("key4", "0_.pkl"))
+    ref_dec = np.transpose(orig.Decramble(np.transpose(ref_le, (0, 2, 3, 1))), (0, 3, 1, 2))
+    our_dec = bs.LE().inverse(torch.from_numpy(ref_le)).numpy()
     assert np.array_equal(our_dec, ref_dec) and np.array_equal(our_dec, images)
+    assert np.array_equal(bs.ELE().inverse(torch.from_numpy(ref_ele)).numpy(), images)
+
+
+def test_seeded_keys_in_the_original_format(images, tmp_path, monkeypatch):
+    ele = bs.ELE(seed=7)
+    os.makedirs(tmp_path / "key4")
+    for i, key in enumerate(ele.pixel_keys(64, 3)):  # same file format as BlockScramble.save
+        with open(tmp_path / "key4" / f"{i}_.pkl", "wb") as f:
+            pickle.dump([[4, 4, 3], key.astype(np.uint32)], f)
+    monkeypatch.chdir(tmp_path)
+    ref_le, ref_ele = _original_le_ele(images, shuffle_seed=7)
+    x = torch.from_numpy(images)
+    assert np.array_equal(bs.LE(seed=7)(x).numpy(), ref_le)
+    assert np.array_equal(ele(x).numpy(), ref_ele)
 
 
 def test_regularisers():
