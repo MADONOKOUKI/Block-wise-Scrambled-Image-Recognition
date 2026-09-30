@@ -1,0 +1,10 @@
+# core (installed by `pip install -e .`)
+torch>=1.13
+torchvision>=0.14
+numpy
+pillow
+# examples/quickstart.py and notebooks/quickstart.ipynb
+matplotlib
+scikit-image
+# tests
+pytest

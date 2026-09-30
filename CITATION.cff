@@ -1,0 +1,44 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the paper below."
+type: software
+title: "blockscramble: official implementation of Block-wise Scrambled Image Recognition Using Adaptation Network"
+version: 1.0.0
+authors:
+  - family-names: Madono
+    given-names: Koki
+    orcid: "https://orcid.org/0000-0002-5214-8539"
+repository-code: "https://github.com/MADONOKOUKI/Block-wise-Scrambled-Image-Recognition"
+url: "https://madonokouki.github.io/projects/blockscramble/"
+license: MIT
+keywords:
+  - image scrambling
+  - block-wise scrambling
+  - learnable image encryption
+  - adaptation network
+  - perceptual information hiding
+  - privacy-preserving machine learning
+preferred-citation:
+  type: conference-paper
+  title: "Block-wise Scrambled Image Recognition Using Adaptation Network"
+  authors:
+    - family-names: Madono
+      given-names: Koki
+      orcid: "https://orcid.org/0000-0002-5214-8539"
+    - family-names: Tanaka
+      given-names: Masayuki
+    - family-names: Onishi
+      given-names: Masaki
+    - family-names: Ogawa
+      given-names: Tetsuji
+  collection-title: "AAAI Workshop on Artificial Intelligence of Things (AIoT)"
+  conference:
+    name: "AAAI-20 Workshop on Artificial Intelligence of Things (AIoT)"
+  year: 2020
+  url: "https://arxiv.org/abs/2001.07761"
+  identifiers:
+    - type: other
+      value: "arXiv:2001.07761"
+      description: arXiv preprint
+    - type: url
+      value: "https://aiotworkshop.github.io/2020/published/Block-wise%20Scrambled%20Image%20Recognition%20Using%20Adaptation%20Network.pdf"
+      description: Workshop PDF
